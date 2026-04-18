@@ -1,0 +1,10 @@
+# Privacy: Block all documents and transcripts
+data/
+*.pdf
+
+# Never commit outputs derived from sensitive documents
+transcripts/
+output/
+results/
+*.txt
+!requirements.txt

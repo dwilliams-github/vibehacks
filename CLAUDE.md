@@ -49,9 +49,10 @@ Each task directory is fully self-contained. No shared code between tasks.
 
 ## Shell / SSH environment
 
-If `git push` fails with a public key error, the shell session predates when SSH credentials were configured. Restart the session:
-- **VSCode extension**: reload the window (`Developer: Reload Window`)
-- **Claude CLI**: exit and relaunch
+If `git push` fails with a public key error in VSCode extension:
+- **Preferred**: run git commands from the terminal (not VSCode UI) — it inherits the shell with SSH agent loaded
+- **Alternative**: switch remote URL to HTTPS (`git remote set-url origin https://...`)
+- **CLI**: exit and relaunch the session to refresh SSH environment
 
 ## Secrets
 

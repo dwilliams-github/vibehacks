@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git add data/*)",
+      "Bash(git add *.txt)",
+      "Bash(git add *.pdf)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command' | grep -qE '^git (push|commit|add)' && echo '{\"systemMessage\":\"⚠️  PRIVACY WARNING: Git operation detected. Ensure no documents from data/ or derived transcripts are being committed. The data/ directory is gitignored for privacy.\"}' || true",
+            "statusMessage": "Checking git operation..."
+          }
+        ]
+      }
+    ]
+  }
+}
