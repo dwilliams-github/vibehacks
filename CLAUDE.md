@@ -47,6 +47,12 @@ Each task directory is fully self-contained. No shared code between tasks.
 3. Install deps: `uv pip install anthropic python-dotenv` (plus task-specific packages)
 4. Create `.env` from `.env.example` and populate `ANTHROPIC_API_KEY`
 
+## Shell / SSH environment
+
+If `git push` fails with a public key error, the shell session predates when SSH credentials were configured. Restart the session:
+- **VSCode extension**: reload the window (`Developer: Reload Window`)
+- **Claude CLI**: exit and relaunch
+
 ## Secrets
 
 - `.env` is gitignored — never commit it
