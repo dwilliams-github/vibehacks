@@ -16,21 +16,18 @@ See `.claude/settings.json` for permission rules and hooks.
 ## Architecture
 
 - **Input**: PDF files in `data/` (gitignored)
-- **Processing**: PaddleOCR with GPU acceleration; auto-rotation correction
-- **Output**: Plain-text transcripts with indentation preserved; optionally piped to agents for summarization
+- **Processing**: Tesseract v4+ LSTM OCR with intelligent rotation detection (Hough coarse + Tesseract confidence refinement)
+- **Output**: Plain-text transcripts with proper line grouping and indentation preserved
 - **No intermediate storage**: Results are stdout or direct file writes, never cached
 
 ## Running
 
 ```bash
 source .venv/bin/activate
-python main.py data/yourfile.pdf -o data/output.txt
+python3 main.py data/yourfile.pdf -o data/output.txt
 ```
-
-First run downloads PaddleOCR models (~100 MB).
 
 ## Dependencies
 
 - Python 3.11+
-- CUDA 13 + cuDNN (for GPU; CPU fallback available)
-- System: `poppler-utils` (for PDF → image)
+- System: `tesseract-ocr`, `poppler-utils`
