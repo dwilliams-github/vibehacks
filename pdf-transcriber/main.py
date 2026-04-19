@@ -10,29 +10,29 @@ from PIL import Image
 import io
 
 
-def detect_rotation_angle(image_cv2: np.ndarray) -> float:
-    """Detect rotation: Hough coarse (1°), Tesseract binary search refinement."""
+def detect_and_correct(pil_image: Image.Image):
+    """Detect rotation, correct it, and return corrected image + cached Tesseract data."""
+    image_cv2 = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
     gray = cv2.cvtColor(image_cv2, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape
     center = (w // 2, h // 2)
 
-    def hough_score(angle):
+    def rotated_gray(angle):
         matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
-        rotated = cv2.warpAffine(gray, matrix, (w, h), borderMode=cv2.BORDER_REPLICATE)
-        edges = cv2.Canny(rotated, 50, 150)
+        return cv2.warpAffine(gray, matrix, (w, h), borderMode=cv2.BORDER_REPLICATE)
+
+    def hough_score(angle):
+        edges = cv2.Canny(rotated_gray(angle), 50, 150)
         lines = cv2.HoughLines(edges, 1, np.pi / 180, 50)
         if lines is None:
             return 0
         return sum(1 for line in lines if abs(np.degrees(line[0][1])) < 10 or abs(np.degrees(line[0][1]) - 180) < 10)
 
-    def tesseract_score(angle):
-        matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
-        rotated = cv2.warpAffine(gray, matrix, (w, h), borderMode=cv2.BORDER_REPLICATE)
-        pil_img = Image.fromarray(rotated)
+    def tesseract_data(angle):
+        pil_img = Image.fromarray(rotated_gray(angle))
         data = pytesseract.image_to_data(pil_img, output_type=pytesseract.Output.DATAFRAME)
-        if data.empty or data['conf'].sum() == 0:
-            return 0.0
-        return data[data['conf'] > 0]['conf'].mean()
+        score = data[data['conf'] > 0]['conf'].mean() if not data.empty else 0.0
+        return score, data
 
     best_angle = 0.0
     best_hough = hough_score(0.0)
@@ -43,31 +43,21 @@ def detect_rotation_angle(image_cv2: np.ndarray) -> float:
             best_angle = float(angle)
 
     low, high = best_angle - 1.0, best_angle + 1.0
+    best_data = None
     while high - low > 0.1:
         mid1 = low + (high - low) / 3.0
         mid2 = high - (high - low) / 3.0
-        if tesseract_score(mid1) > tesseract_score(mid2):
+        score1, data1 = tesseract_data(mid1)
+        score2, data2 = tesseract_data(mid2)
+        if score1 > score2:
             high = mid2
+            best_data = data1
         else:
             low = mid1
+            best_data = data2
 
-    return (low + high) / 2.0
-
-
-def correct_rotation(pil_image: Image.Image) -> Image.Image:
-    """Auto-detect and correct page rotation."""
-    image_cv2 = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-    angle = detect_rotation_angle(image_cv2)
-
-    if abs(angle) < 1.0:
-        return pil_image
-
-    h, w = image_cv2.shape[:2]
-    center = (w // 2, h // 2)
-    matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
-    rotated = cv2.warpAffine(image_cv2, matrix, (w, h), borderMode=cv2.BORDER_REPLICATE)
-
-    return Image.fromarray(cv2.cvtColor(rotated, cv2.COLOR_BGR2RGB))
+    assert best_data is not None
+    return best_data
 
 
 def transcribe_pdf(pdf_path: str) -> str:
@@ -85,9 +75,9 @@ def transcribe_pdf(pdf_path: str) -> str:
     for page_num, page_image in enumerate(pages, 1):
         print(f"Processing page {page_num}/{len(pages)}...", file=sys.stderr)
 
-        corrected = correct_rotation(page_image)
+        data = detect_and_correct(page_image)
 
-        page_text = extract_text_with_layout(corrected)
+        page_text = extract_text_with_layout(data)
         all_text.append(page_text)
 
         if page_num < len(pages):
@@ -96,11 +86,9 @@ def transcribe_pdf(pdf_path: str) -> str:
     return "".join(all_text)
 
 
-def extract_text_with_layout(image: Image.Image) -> str:
-    """Extract OCR text using Tesseract with layout preservation."""
-    data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DATAFRAME)
-
-    if data.empty:
+def extract_text_with_layout(data) -> str:
+    """Format Tesseract dataframe into plain text with layout preservation."""
+    if data is None or data.empty:
         return ""
 
     data = data[data['conf'] > 0]
