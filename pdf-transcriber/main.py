@@ -91,7 +91,7 @@ def extract_text_with_layout(data) -> str:
     if data is None or data.empty:
         return ""
 
-    data = data[data['conf'] > 0]
+    data = data[(data['conf'] > 0) & data['text'].notna()]
     data = data.sort_values(['top', 'left']).reset_index(drop=True)
 
     text_lines = []
@@ -109,7 +109,7 @@ def extract_text_with_layout(data) -> str:
                 current_line.sort(key=lambda x: x[0])
                 x_min = current_line[0][0]
                 indent = int(x_min / 50)
-                line_text = " ".join(text for _, text in current_line)
+                line_text = " ".join(str(text) for _, text in current_line if str(text).strip())
                 text_lines.append(" " * indent + line_text)
             current_line = [(row['left'], row['text'])]
             current_line_num = line_num
@@ -118,7 +118,7 @@ def extract_text_with_layout(data) -> str:
         current_line.sort(key=lambda x: x[0])
         x_min = current_line[0][0]
         indent = int(x_min / 50)
-        line_text = " ".join(text for _, text in current_line)
+        line_text = " ".join(str(text) for _, text in current_line if str(text).strip())
         text_lines.append(" " * indent + line_text)
 
     return "\n".join(text_lines) + "\n"
